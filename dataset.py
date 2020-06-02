@@ -28,20 +28,24 @@ binarize_output = opt.binarize_output
 long_base_case = not opt.no_long_base_case
 input_as_seq = False
 output_as_seq = False
-dset_training = ForLambdaDataset("training_For.json",
-                                       binarize_input=binarize_input, binarize_output=binarize_output,
-                                       eos_token=eos_token, one_hot=one_hot,
-                                       num_ints=num_ints, num_vars=num_vars,
-                                       long_base_case=long_base_case,
-                                       input_as_seq=input_as_seq,
-                                       output_as_seq=output_as_seq)
-
-
-print(dir(dset_training))
-print(type(dset_training))
-
-# import pickle
-# with open('test_for','wb') as data_test_for :
-#     pickle.dump(dset_test,data_test_for)
-torch.save(dset_training,'dset_training_for')
-print("pickle task finshed")
+# dset_training = ForLambdaDataset("training_For.json",
+#                                        binarize_input=binarize_input, binarize_output=binarize_output,
+#                                        eos_token=eos_token, one_hot=one_hot,
+#                                        num_ints=num_ints, num_vars=num_vars,
+#                                        long_base_case=long_base_case,
+#                                        input_as_seq=input_as_seq,
+#                                        output_as_seq=output_as_seq)
+#
+#
+# print(dir(dset_training))
+# print(type(dset_training))
+#
+# # import pickle
+# # with open('test_for','wb') as data_test_for :
+# #     pickle.dump(dset_test,data_test_for)
+# torch.save(dset_training,'dset_training_for')
+path='training_For.json'
+progs_json = json.load(open(path))
+for prog in progs_json:
+    print(prog)
+    break
