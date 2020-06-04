@@ -116,8 +116,8 @@ class TreeLSTM(nn.Module):
             children.append(encoded_child)
 
         # Extract the TreeCell inputs
-        inputH = [vec[0].value for vec in children]
-        inputC = [vec[1] for vec in children]
+        inputH = [vec[0].value for vec in children] #inputH here is the list of node value of the children
+        inputC = [vec[1] for vec in children] #inputC isthe list  zero vector for terminal nodes
 
         for i, hidden in enumerate(inputH):
             if hidden is None:
