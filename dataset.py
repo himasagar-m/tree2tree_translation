@@ -1,6 +1,7 @@
 import argparse
 
 from tree_to_sequence.program_datasets import *
+from tree_to_sequence.tree_encoder import TreeEncoder
 
 parser = argparse.ArgumentParser()
 
@@ -70,6 +71,13 @@ def ptree(root):
         for c in root.children:
             ptree(c)
 
-ptree(lambda_tree)
+def change_tree(tree):
+    for child in tree.children:
+        child.value = tree.value+5
+        change_tree(child)
+lambda_tree.value = 5
+change_tree(lambda_tree)
+#ptree(lambda_tree)
 
-
+encoder = TreeEncoder(10, 10, 1, [1, 2, 3, 4, 5], attention=True, one_hot=False,
+                          binary_tree_lstm_cell=False)

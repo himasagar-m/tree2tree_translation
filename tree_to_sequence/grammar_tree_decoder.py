@@ -101,7 +101,7 @@ class GrammarTreeDecoder(nn.Module):
         """
         possible_categories = self.parent_to_category(parent)
         category = int(possible_categories[child_index])
-        
+        # log_odds here is the decoded value of the node
         if self.share_linear:
             log_odds = self.linear_lists[category](et)
         else:

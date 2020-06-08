@@ -160,8 +160,10 @@ class SyntacticProgramDataset(Dataset):
 
         input_programs = [encode_program(prog, num_vars, num_ints, input_ops, eos_token=eos_token,
                                          one_hot=one_hot) for prog in input_programs]
+        input_programs = [encode_relation(prog) for prog in input_programs]
         output_programs = [encode_program(prog, num_vars, num_ints, output_ops, eos_token=eos_token) for prog in
                            output_programs]
+        output_programs = [encode_relation(prog) for prog in output_programs]
         self.program_pairs = list(zip(input_programs, output_programs))
 
     def __len__(self):
@@ -176,8 +178,9 @@ class ForLambdaDataset(SyntacticProgramDataset):
                  input_as_seq=False, output_as_seq=True, one_hot=True, long_base_case=True):
         progs_json = json.load(open(path))
         for_progs = [make_tree_for(prog, long_base_case=long_base_case) for prog in progs_json]
+        for_progs = [add_relation_for(prog) for prog in for_progs]
         lambda_progs = [translate_from_for(copy.deepcopy(for_prog)) for for_prog in for_progs]
-
+        lambda_progs = [add_relation_lambda(prog) for prog in lambda_progs]
         max_children_output = 2 if binarize_output else max_children_lambda
         super().__init__(for_progs, lambda_progs, input_ops=for_ops, output_ops=lambda_ops,
                          max_children_output=max_children_output, num_vars=num_vars,
