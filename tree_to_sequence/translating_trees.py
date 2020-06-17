@@ -13,10 +13,11 @@ class Node:
     Node class
     """
 
-    def __init__(self, value, relation=None):
+    def __init__(self, value, relation=None,ec=False):
         self.relation = relation
         self.value = value
         self.children = []
+        self.ec = ec
 
     def cuda(self):
         return map_tree(lambda value: value.cuda(), self)
@@ -383,6 +384,21 @@ def make_one_hot(len, index):
 def un_one_hot(vector):
     return int(vector.nonzero())
 
+def embed_scl_tree(embedding,linear,tree):
+    tree.value = embedding(tree.value)
+    tree.rel = embedding(tree.rel)
+    tree.ec = embedding(tree.ec)
+    tree.value = linear(torch.cat((tree.value,tree.rel,tree.ec),0))
+    new_children = []
+    for child in tree.children:
+        new_children.append(embed_scl_tree(embedding,child))
+    tree.children = new_children
+
+    return tree
+
+
+
+
 
 def map_tree(func, tree):
     new_tree = Node(func(tree.value) if tree.value is not None else tree.value)
@@ -621,17 +637,28 @@ def get_val(value):
         return value
 
 
-def encode_program(program, num_vars, num_ints, ops, eos_token=False, one_hot=False):
+def encode_program(program, num_vars, num_ints,num_stmt, ops, eos_token=False, one_hot=False):
     if isinstance(program, Node):
-        return map_tree(lambda node: vectorize(node, num_vars, num_ints, ops, eos_token=eos_token,
+        return map_tree(lambda node: vectorize(node, num_vars, num_ints,num_stmt, ops, eos_token=eos_token,
                                                one_hot=one_hot), program)
     else:
-        program = map(lambda node: vectorize(node, num_vars, num_ints, ops, eos_token=eos_token,
+        program = map(lambda node: vectorize(node, num_vars, num_ints,num_stmt, ops, eos_token=eos_token,
                                              one_hot=one_hot), program)
         if one_hot:
             return torch.stack(list(program))
         else:
             return torch.LongTensor(list(program))
+
+def encode_scl_program(tree ,input_ops):
+    tree.value = torch.LongTensor(input_ops[tree.value])
+    tree.relation = torch.LongTensor(input_ops[tree.relation])
+    tree.ec = torch.LongTensor(input_ops[tree.ec])
+
+    new_children=[]
+    for child in tree.children:
+        new_children.append(encode_scl_program(child,input_ops))
+    tree.children = new_children
+    return tree
 
 def encode_relation(tree):
     for child in tree.children:
@@ -951,6 +978,45 @@ def category_to_child_FOR(num_vars, num_ints, category):
 
     return for_grammar[category]
 
+class SCL(IntEnum):
+    Program = 0
+    BB = 1
+    STMT = 2
+
+class SCL_GRAMMAR(IntEnum):
+    BB= 0
+    STMT = 1
+    VAR = 2
+
+def parent_to_category_scl(parent):
+    if int(parent) in range(70,80):
+        return []
+
+    if int(parent) == 83:
+        op_index = 0
+    elif int(parent) in range(80,82):
+        op_index = 1
+    else:
+        op_index = 2
+
+    scl_grammer = {
+        SCL.Program : [SCL_GRAMMAR.BB],
+        SCL.BB : [SCL_GRAMMAR.STMT],
+        SCL.STMT : [SCL_GRAMMAR.VAR]
+    }
+
+    return scl_grammer[op_index]
+def category_to_child_scl(category):
+
+     scl_grammar={
+         SCL_GRAMMAR.BB : range(80,82),
+         SCL_GRAMMAR.STMT : range(70),
+         SCL_GRAMMAR.VAR : range(70,80)
+
+     }
+     return scl_grammar[category]
+
+
 
 def translate_from_for(tree):
     if tree.value == '<SEQ>':
@@ -1002,3 +1068,5 @@ def translate_from_for(tree):
         return new_tree
     else:
         return tree
+
+

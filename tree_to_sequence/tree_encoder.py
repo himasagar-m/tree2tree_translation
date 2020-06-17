@@ -3,7 +3,7 @@ import torch.nn as nn
 
 from tree_to_sequence.tree_lstm import TreeLSTM
 from tree_to_sequence.tree_lstm import BinaryTreeLSTM
-from tree_to_sequence.translating_trees import map_tree, tree_to_list, map_tree_edge
+from tree_to_sequence.translating_trees import map_tree, tree_to_list, map_tree_edge, embed_scl_tree
 
 
 class TreeEncoder(nn.Module):
@@ -22,6 +22,7 @@ class TreeEncoder(nn.Module):
         self.one_hot = one_hot
         self.dropout = False
         self.edge_input_size = input_size
+        self.linear = nn.Linear(embedding_size*3,embedding_size)
 
         if dropout:
             self.dropout = nn.Dropout(p=dropout)
@@ -33,7 +34,7 @@ class TreeEncoder(nn.Module):
                 self.lstm_list.append(TreeLSTM(input_size, hidden_size, valid_num_children))
         else:
             self.embedding = nn.Embedding(input_size, embedding_size)
-            self.edge_embedding = nn.Embedding(self.edge_input_size, embedding_size)
+            #self.edge_embedding = nn.Embedding(self.edge_input_size, embedding_size)
             self.lstm_list.append(TreeLSTM(embedding_size, hidden_size, valid_num_children))
             
 
@@ -56,8 +57,9 @@ class TreeEncoder(nn.Module):
 
         """
         if not self.one_hot:
-            tree = map_tree(lambda node: self.embedding(node).squeeze(0), tree)
-            tree = map_tree_edge(tree)
+            # tree = map_tree(lambda node: self.embedding(node).squeeze(0), tree)
+            # tree = map_tree_edge(tree)
+            tree = embed_scl_tree(self.embedding,self.linear,tree)# concat all three to one
             
         if self.dropout:
             tree = map_tree(lambda node: self.dropout(node), tree)

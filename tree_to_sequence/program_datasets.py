@@ -4,7 +4,101 @@ from tree_to_sequence.translating_trees import *
 
 import copy
 import json
+#task add graphtotree to translating_trees
+scl_ops = {
+    "stmtLine0" : 0,
+    "stmtLine1" : 1,
+    "stmtLine2" : 2,
+    "stmtLine3" : 3,
+    "stmtLine4" : 4,
+    "stmtLine5" : 5,
+    "stmtLine6" : 6,
+    "stmtLine7" : 7,
+    "stmtLine8" : 8,
+    "stmtLine9" : 9,
+    "stmtLine10" : 10,
+    "stmtLine11" : 11,
+    "stmtLine12" : 12,
+    "stmtLine13" : 13,
+    "stmtLine14" : 14,
+    "stmtLine15" : 15,
+    "stmtLine16" : 16,
+    "stmtLine17" : 17,
+    "stmtLine18" : 18,
+    "stmtLine19" : 19,
+    "stmtLine20" : 20,
+    "stmtLine21" : 21,
+    "stmtLine22" : 22,
+    "stmtLine23" : 23,
+    "stmtLine24" : 24,
+    "stmtLine25" : 25,
+    "stmtLine26" : 26,
+    "stmtLine27" : 27,
+    "stmtLine28" : 28,
+    "stmtLine29" : 29,
+    "stmtLine30" : 30,
+    "stmtLine31" : 31,
+    "stmtLine32" : 32,
+    "stmtLine33" : 33,
+    "stmtLine34" : 34,
+    "stmtLine35" : 35,
+    "stmtLine36" : 36,
+    "stmtLine37" : 37,
+    "stmtLine38" : 38,
+    "stmtLine39" : 39,
+    "stmtLine40" : 40,
+    "stmtLine41" : 41,
+    "stmtLine42" : 42,
+    "stmtLine43" : 43,
+    "stmtLine44" : 44,
+    "stmtLine45" : 45,
+    "stmtLine46" : 46,
+    "stmtLine47" : 47,
+    "stmtLine48" : 48,
+    "stmtLine49" : 49,
+    "stmtLine50" : 50,
+    "stmtLine51" : 51,
+    "stmtLine52" : 52,
+    "stmtLine53" : 53,
+    "stmtLine54" : 54,
+    "stmtLine55" : 55,
+    "stmtLine56" : 56,
+    "stmtLine57" : 57,
+    "stmtLine58" : 58,
+    "stmtLine59" : 59,
+    "stmtLine60" : 60,
+    "stmtLine61" : 61,
+    "stmtLine62" : 62,
+    "stmtLine63" : 63,
+    "stmtLine64" : 64,
+    "stmtLine65" : 65,
+    "stmtLine66" : 66,
+    "stmtLine67" : 67,
+    "stmtLine68" : 68,
+    "stmtLine69" : 69,
+    "Var_1" : 70,
+    "Var_2" : 71,
+    "Var_3" : 72,
+    "Var_4" : 73,
+    "Var_5" : 74,
+    "Var_6" : 75,
+    "a" : 76,
+    "b" : 77,
+    "c" : 78,
+    "d" : 79,
+    "BB1" : 80,
+    "BB2" : 81,
+    "Program" : 83,
+    "hasBB" : 84,
+    "hasStmt" : 85,
+    "hasVarDef" : 86,
+    "hasVarUse" : 87,
+    "None" : 88,
+    "True" : 89,
+    "False" : 90
 
+}
+max_children_scl = 20
 for_ops = {
     "<VAR>": 0,
     "<CONST>": 1,
@@ -129,7 +223,7 @@ javascript_ops = {
 
 class SyntacticProgramDataset(Dataset):
     def __init__(self, input_programs, output_programs, input_ops=None, output_ops=None,
-                 max_children_output=None, num_vars=10, num_ints=11, binarize_input=False, binarize_output=False,
+                 max_children_output=None, num_vars=80, num_ints=10,num_stmt=70, binarize_input=False, binarize_output=False,
                  eos_token=True, input_as_seq=False, output_as_seq=True, one_hot=False):
         if eos_token and not output_as_seq and max_children_output is None:
             raise ValueError("When the output is a tree and you want end of tree tokens, it is"
@@ -158,12 +252,8 @@ class SyntacticProgramDataset(Dataset):
             output_programs = map(lambda prog: add_eos(prog, num_children=max_children_output),
                                   output_programs)
 
-        input_programs = [encode_program(prog, num_vars, num_ints, input_ops, eos_token=eos_token,
-                                         one_hot=one_hot) for prog in input_programs]
-        input_programs = [encode_relation(prog) for prog in input_programs]
-        output_programs = [encode_program(prog, num_vars, num_ints, output_ops, eos_token=eos_token) for prog in
-                           output_programs]
-        output_programs = [encode_relation(prog) for prog in output_programs]
+        input_programs = [encode_scl_program(prog ,input_ops) for prog in input_programs]
+        output_programs = [encode_scl_program(prog ,input_ops) for prog in output_programs]
         self.program_pairs = list(zip(input_programs, output_programs))
 
     def __len__(self):
@@ -186,6 +276,18 @@ class ForLambdaDataset(SyntacticProgramDataset):
                          max_children_output=max_children_output, num_vars=num_vars,
                          num_ints=num_ints, binarize_input=binarize_input, binarize_output=binarize_output,
                          eos_token=eos_token, input_as_seq=input_as_seq, output_as_seq=output_as_seq, one_hot=one_hot)
+
+
+class scldataset(SyntacticProgramDataset):
+    def __init__(self, path, num_vars=80, num_ints=10,num_stmt=70):
+        unopt_paths = [path+'unOpt_{}_Block_1.nt'.format(i) for i in range(5000,6000)]
+        opt_paths = [path+'Opt_{}_Block_1.nt'.format(i) for i in range(5000,6000)]
+        unopt_progs = [Graph_To_Tree(path) for path in unopt_paths]
+        opt_progs = [Graph_To_Tree(path) for path in opt_paths]
+
+
+        super().__init__(unopt_progs,opt_progs, input_ops=scl_ops, output_ops=scl_ops,
+                         num_vars=num_vars,num_ints=num_ints,num_stmt=num_stmt)
 
 
 class JsCoffeeDataset(SyntacticProgramDataset):

@@ -43,6 +43,7 @@ class TreeToTreeAttention(nn.Module):
         Generate predictions for an output tree given an input tree, then calculate the loss.
         """
         # Encode tree
+
         annotations, decoder_hiddens, decoder_cell_states = self.encoder(input_tree)
 
         if self.align_type <= 1:
@@ -53,13 +54,13 @@ class TreeToTreeAttention(nn.Module):
         # number to accumulate loss
         loss = 0
 
-        # Tuple: (hidden_state, cell_state, desired_output, parent_value, child_index)
-        unexpanded = [(decoder_hiddens, decoder_cell_states, target_tree, self.root_value, 0)]
+        # Tuple: (hidden_state, cell_state, desired_output, parent_value,parent_ec, child_index)
+        unexpanded = [(decoder_hiddens, decoder_cell_states, target_tree, self.root_value,True,None, 0)]
 
         # while stack isn't empty:
         while (len(unexpanded)) > 0:
             # Pop last item
-            decoder_hiddens, decoder_cell_states, targetNode, parent_val, child_index = \
+            decoder_hiddens, decoder_cell_states, targetNode, parent_val,parent_ec,parent_rel, child_index = \
                 unexpanded.pop()
 
             # Use attention and past hidden state to generate scores
@@ -70,7 +71,7 @@ class TreeToTreeAttention(nn.Module):
             et = self.tanh(self.attention_presoftmax(torch.cat((decoder_hiddens, context_vec),
                                                                dim=1)))  # 1 x hidden_size
             # Calculate loss
-            loss += self.decoder.calculate_loss(parent_val, child_index, et, targetNode.value)
+            loss += self.decoder.calculate_loss(parent_val,targetNode.ec,targetNode.rel, child_index, et, targetNode.value)
 
             # If we have an EOS, there are no children to generate
             if int(targetNode.value) == self.EOS_value:
@@ -78,8 +79,13 @@ class TreeToTreeAttention(nn.Module):
 
             # Teacher forcing means we use the correct value (not the predicted value) of a node to 
             # generate its children
+            next_ec = targetNode.ec
+            next_rel = targetNode.relation
             if teacher_forcing:
                 next_input = targetNode.value
+                next_ec = targetNode.ec
+                next_rel = targetNode.relation
+
             else:
                 _, next_input = log_odds.topk(1)
 
@@ -96,11 +102,11 @@ class TreeToTreeAttention(nn.Module):
                                                                          decoder_input,
                                                                          decoder_hiddens,
                                                                          decoder_cell_states)
-                unexpanded.append((child_hiddens, child_cell_states, child, parent,
-                                   new_child_index))
+                unexpanded.append([child_hiddens, child_cell_states, child, parent, next_ec,next_rel,
+                                   new_child_index])
 
         return loss
-    def find_relation(self, parent_states, child_states, attention_hidden_values, annotations, parent, child_index):
+    def find_relation(self, parent_states, child_states, attention_hidden_values, annotations, parent, child_index,return_loss=False):
         # relation prediction between nodes
 
         # here -- relace attention_hidden_values with relation_hidden_values
@@ -112,8 +118,15 @@ class TreeToTreeAttention(nn.Module):
                                                            dim=1)))  # 1 x hidden_size
         log_odds, possible_indices = self.get_log_odds(parent, child_index, et)
         _, max_index = torch.max(log_odds, 1)
-        return torch.tensor([possible_indices[int(max_index)]], device=max_index.device)
+        predicted_relation = torch.tensor([possible_indices[int(max_index)]], device=max_index.device)
+        if return_loss == False:
+            return predicted_relation
+        else :
+            loss = self.loss_func(log_odds, predicted_relation)
+    def find_last_child(self,decoder_hiddens, decoder_cell_states, curr_root, parent_val,parent_ec,parent_rel, child_index):
 
+
+        return ec
     def forward_prediction(self, input_tree, max_size=None):
         """
         Generate an output tree given an input tree
@@ -134,7 +147,8 @@ class TreeToTreeAttention(nn.Module):
 
         # Create stack of unexpanded nodes
         # Tuple: (hidden_state, cell_state, desired_output, parent_value, child_index)
-        unexpanded = [(decoder_hiddens, decoder_cell_states, tree, self.root_value, 0)]
+        #unexpanded = [(decoder_hiddens, decoder_cell_states, tree, self.root_value,None, 0)]
+        unexpanded = [(decoder_hiddens, decoder_cell_states, tree, self.root_value,True,None, 0)]
 
         if self.align_type <= 1:
             attention_hidden_values = self.attention_hidden(annotations)
@@ -144,32 +158,36 @@ class TreeToTreeAttention(nn.Module):
         # while stack isn't empty:
         while (len(unexpanded)) > 0:
             # Pop last item
-            decoder_hiddens, decoder_cell_states, curr_root, parent_val, child_index = \
+            decoder_hiddens, decoder_cell_states, curr_root, parent_val,parent_ec,parent_rel, child_index = \
                 unexpanded.pop()
 
+
+
             # Use attention and pass hidden state to make a prediction
-            decoder_hidden = decoder_hiddens[-1].unsqueeze(0)
+            decoder_hiddens = decoder_hiddens[-1].unsqueeze(0)
             attention_logits = self.attention_logits(attention_hidden_values, decoder_hiddens)
             attention_probs = self.softmax(attention_logits)  # number_of_nodes x 1
             context_vec = (attention_probs * annotations).sum(0).unsqueeze(0)  # 1 x hidden_size
             et = self.tanh(self.attention_presoftmax(torch.cat((decoder_hiddens, context_vec),
                                                                dim=1)))  # 1 x hidden_size
-            next_input = self.decoder.make_prediction(parent_val, child_index, et)
+            next_input,ec,rel = self.decoder.make_prediction(parent_val, et)
             curr_root.value = next_input
+            curr_root.ec = ec
+            curr_root.relation = rel
             num_nodes += 1
 
             # Only generate up to max_size nodes
-            if num_nodes > self.max_size:
+            if num_nodes > self.max_size :
                 break
 
             # If we have an EOS, there are no children to generate
-            if int(curr_root.value) == self.EOS_value:
+            if int(curr_root.value) == self.EOS_value :
                 continue
-
+            embed = torch.cat()
             decoder_input = torch.cat((self.embedding(next_input), et), 1)
             parent = next_input
 
-            for i in range(self.decoder.number_children(parent)):
+            for i in range(20):
                 # Get hidden state and cell state which will be used to generate this node's 
                 # children
                 child_hiddens, child_cell_states = self.decoder.get_next(parent, i,
@@ -178,12 +196,25 @@ class TreeToTreeAttention(nn.Module):
                                                                          decoder_cell_states)
                 # Add children to the stack
                 curr_child = Node(PLACEHOLDER)
-                parent_states = torch.cat((decoder_hiddens, decoder_cell_states), 0)
-                child_states = torch.cat((child_hiddens, child_cell_states), 0)
-                parent_relation = find_relation(parent_states, child_states, attention_hidden_values, annotations, parent, i)
-                curr_child.relation = parent_relation
-                unexpanded.append((child_hiddens, child_cell_states, curr_child, parent, i))
+                # parent_states = torch.cat((decoder_hiddens, decoder_cell_states), 0)
+                # child_states = torch.cat((child_hiddens, child_cell_states), 0)
+                #parent_relation = self.find_relation(parent_states, child_states, attention_hidden_values, annotations, parent, i, return_loss=False)
+                # unexpanded = [(decoder_hiddens, decoder_cell_states, tree, self.root_value,True,None, 0)]
+                unexpanded.append((child_hiddens, child_cell_states, curr_child, parent,curr_root.ec,curr_root.relation, i))
                 curr_root.children.append(curr_child)
+
+                decoder_hiddens, decoder_cell_states, curr_root, parent_val,parent_ec,parent_rel, child_index  \
+                    = child_hiddens, child_cell_states, curr_child, parent,curr_root.ec,curr_root.relation, i
+                decoder_hiddens = decoder_hiddens[-1].unsqueeze(0)
+                attention_logits = self.attention_logits(attention_hidden_values, decoder_hiddens)
+                attention_probs = self.softmax(attention_logits)  # number_of_nodes x 1
+                context_vec = (attention_probs * annotations).sum(0).unsqueeze(0)  # 1 x hidden_size
+                et = self.tanh(self.attention_presoftmax(torch.cat((decoder_hiddens, context_vec),
+                                                                   dim=1)))  # 1 x hidden_size
+                next_input,ec,rel = self.decoder.make_prediction(parent_val, et)
+
+                if ec == 89:
+                    break
 
         return tree
 

@@ -127,6 +127,10 @@ elif opt.problem_number == 1:
                                  binarize_input=binarize_input, binarize_output=binarize_output, 
                                  eos_token=eos_token, one_hot=one_hot, num_ints=num_ints, num_vars=num_vars,
                                  long_base_case=long_base_case, input_as_seq=input_as_seq, output_as_seq=output_as_seq)
+elif opt.problem_number== 2:
+    dset_train = scldataset('NT_Files')
+    dset_val = scldataset('NT_Files')
+    dset_test = scldataset('NT_Files')
 else:
     raise ValueError("Problem number must be either 0 or 1.")
 
@@ -144,6 +148,15 @@ if opt.problem_number == 0:
     nclass = num_vars + num_ints + len(lambda_ops)
     num_categories = len(LambdaGrammar)
     num_possible_parents = len(Lambda)
+    max_num_children = 2 if binarize_output else 4
+    parent_to_category = partial(parent_to_category_LAMBDA, num_vars, num_ints)
+    category_to_child = partial(category_to_child_LAMBDA, num_vars, num_ints)
+
+if opt.problem_number == 2:
+    encoder_input_size = len(scl_ops)
+    nclass = len(scl_ops)
+    num_categories = len(SCL_GRAMMAR)
+    num_possible_parents = len(SCL)
     max_num_children = 2 if binarize_output else 4
     parent_to_category = partial(parent_to_category_LAMBDA, num_vars, num_ints)
     category_to_child = partial(category_to_child_LAMBDA, num_vars, num_ints)
@@ -182,10 +195,11 @@ def save_test_accuracy():
     with open(save_folder + "/" + save_file + "_test.txt", "a") as file:
         file.write(str(test_accuracy))
     print('really done')
-
+#valid_children = [1, 2, 3, 4, 5]
+valid_children = [i for i in range(1,21)]
 def make_model():
-    encoder = TreeEncoder(encoder_input_size, hidden_size, num_layers, [1, 2, 3, 4, 5], attention=True, one_hot=one_hot, 
-                          binary_tree_lstm_cell=opt.binary_tree_lstm_cell)
+    encoder = TreeEncoder(encoder_input_size, hidden_size, num_layers, valid_children, attention=True, one_hot=False,
+                          binary_tree_lstm_cell=False)
 
     if decoder_type == "grammar":
         decoder = GrammarTreeDecoder(embedding_size, hidden_size, num_categories, 

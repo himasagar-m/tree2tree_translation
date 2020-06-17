@@ -54,7 +54,7 @@ output_as_seq = False
 # torch.save(dset_training,'dset_training_for')
 path = 'training_For.json'
 progs_json = json.load(open(path))
-
+#
 for_tree = make_tree_for(progs_json[0], long_base_case=long_base_case)
 lambda_tree = translate_from_for(copy.deepcopy(for_tree))
 
@@ -71,13 +71,78 @@ def ptree(root):
         for c in root.children:
             ptree(c)
 
-def change_tree(tree):
-    for child in tree.children:
-        child.value = tree.value+5
-        change_tree(child)
-lambda_tree.value = 5
-change_tree(lambda_tree)
-#ptree(lambda_tree)
+# def change_tree(tree):
+#     for child in tree.children:
+#         child.value = tree.value+5
+#         change_tree(child)
+# lambda_tree.value = 5
+# change_tree(lambda_tree)
+# ptree(lambda_tree)
 
-encoder = TreeEncoder(10, 10, 1, [1, 2, 3, 4, 5], attention=True, one_hot=False,
-                          binary_tree_lstm_cell=False)
+print(for_tree.value)
+class LambdaGrammar(IntEnum):
+    INT = 0
+    VAR_NAME = 1
+    VAR = 2
+    EXPR = 3
+    VARAPP = 4
+    CMP = 5
+    TERM = 6
+    VARUNIT = 7
+
+
+class Lambda(IntEnum):
+    VAR = 0
+    CONST = 1
+    PLUS = 2
+    MINUS = 3
+    EQUAL = 4
+    LE = 5
+    GE = 6
+    IF = 7
+    LET = 8
+    UNIT = 9
+    LETREC = 10
+    APP = 11
+    ROOT = 12
+
+lambda_grammar = {
+        Lambda.ROOT: [LambdaGrammar.TERM],
+        Lambda.VAR: [LambdaGrammar.VAR_NAME],
+        Lambda.CONST: [LambdaGrammar.INT],
+        Lambda.PLUS: [LambdaGrammar.EXPR, LambdaGrammar.EXPR],
+        Lambda.MINUS: [LambdaGrammar.EXPR, LambdaGrammar.EXPR],
+        Lambda.EQUAL: [LambdaGrammar.EXPR, LambdaGrammar.EXPR],
+        Lambda.LE: [LambdaGrammar.EXPR, LambdaGrammar.EXPR],
+        Lambda.GE: [LambdaGrammar.EXPR, LambdaGrammar.EXPR],
+        Lambda.IF: [LambdaGrammar.CMP, LambdaGrammar.TERM, LambdaGrammar.TERM],
+        Lambda.LET: [LambdaGrammar.VARUNIT, LambdaGrammar.TERM, LambdaGrammar.TERM],
+        Lambda.UNIT: [],
+        Lambda.LETREC: [LambdaGrammar.VAR_NAME, LambdaGrammar.VAR_NAME, LambdaGrammar.TERM,
+                        LambdaGrammar.TERM],
+        Lambda.APP: [LambdaGrammar.VARAPP, LambdaGrammar.EXPR]
+    }
+
+def category_to_child_LAMBDA(num_vars, num_ints, category):
+    """
+    Take a category of output, and return a list of new tokens which can be its children in the
+    Lambda language.
+
+    :param num_vars: number of variables a program can use
+    :param num_ints: number of ints a program can use
+    :param category: category of output generated next
+    """
+    n = num_ints + num_vars
+    lambda_grammar = {
+        LambdaGrammar.INT: range(num_ints),
+        LambdaGrammar.VAR_NAME: range(num_ints, n),
+        LambdaGrammar.VAR: [x + n for x in [Lambda.VAR]],
+        LambdaGrammar.EXPR: [x + n for x in [Lambda.VAR, Lambda.CONST, Lambda.PLUS, Lambda.MINUS, Lambda.CONST]],
+        LambdaGrammar.VARAPP: [x + n for x in [Lambda.VAR, Lambda.APP]] + list(range(num_ints, n)),
+        LambdaGrammar.CMP: [x + n for x in [Lambda.EQUAL, Lambda.LE, Lambda.GE]],
+        LambdaGrammar.TERM: [x + n for x in [Lambda.LET, Lambda.LETREC, Lambda.PLUS, Lambda.MINUS, Lambda.VAR,
+                                             Lambda.CONST, Lambda.UNIT, Lambda.IF, Lambda.APP]],
+        LambdaGrammar.VARUNIT: [x + n for x in [Lambda.VAR]] + list(range(num_ints, n)),
+    }
+
+    return lambda_grammar[category]
