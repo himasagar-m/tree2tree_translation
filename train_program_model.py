@@ -132,7 +132,7 @@ elif opt.problem_number== 2:
     dset_val = scldataset('NT_Files')
     dset_test = scldataset('NT_Files')
 else:
-    raise ValueError("Problem number must be either 0 or 1.")
+    raise ValueError("Problem number must be either 0 or 1 or 2 .")
 
 if decoder_type != "sequence":
     max_size = int(max([x[1].size() for x in dset_train] + [x[1].size() for x in dset_val] + [x[1].size() for x in dset_test]))
