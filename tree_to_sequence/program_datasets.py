@@ -280,8 +280,8 @@ class ForLambdaDataset(SyntacticProgramDataset):
 
 class scldataset(SyntacticProgramDataset):
     def __init__(self, path, num_vars=80, num_ints=10,num_stmt=70):
-        unopt_paths = [path+'unOpt_{}_Block_1.nt'.format(i) for i in range(5000,6000)]
-        opt_paths = [path+'Opt_{}_Block_1.nt'.format(i) for i in range(5000,6000)]
+        unopt_paths = [path+'/unOpt_{}_Block_1.nt'.format(i) for i in range(5000,6000)]
+        opt_paths = [path+'/Opt_{}_Block_1.nt'.format(i) for i in range(5000,6000)]
         unopt_progs = [Graph_To_Tree(path) for path in unopt_paths]
         opt_progs = [Graph_To_Tree(path) for path in opt_paths]
 
